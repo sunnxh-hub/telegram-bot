@@ -1,160 +1,94 @@
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler,
+    CallbackQueryHandler, MessageHandler,
+    ContextTypes, filters
+)
 
 TOKEN = os.getenv("TOKEN")
 
-# START
+ADMIN_ID = 123456789       # <-- TU ID (luego lo cambiamos)
+GROUP_ID = -1001234567890  # <-- TU GRUPO (luego lo cambiamos)
+
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [
-            InlineKeyboardButton("🇪🇸 Español", callback_data="lang_es"),
-            InlineKeyboardButton("🇺🇸 English", callback_data="lang_en")
-        ],
-        [
-            InlineKeyboardButton("🇧🇷 Português", callback_data="lang_pt"),
-            InlineKeyboardButton("🇹🇷 Türkçe", callback_data="lang_tr")
-        ],
-        [
-            InlineKeyboardButton("🇩🇪 Deutsch", callback_data="lang_de"),
-            InlineKeyboardButton("🇫🇷 Français", callback_data="lang_fr")
-        ]
+        [InlineKeyboardButton("💰 Comprar acceso", callback_data="comprar")]
     ]
 
     await update.message.reply_text(
-        "✨ Welcome! Select your language:",
+        "🔥 Bienvenido\n\nCompra acceso al grupo VIP",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# MENÚ PRINCIPAL
-async def menu_principal(query):
-    keyboard = [
-        [InlineKeyboardButton("⚡ Comprar Acceso Instantáneo", callback_data="comprar")],
-        [InlineKeyboardButton("👥 Comprar Acceso Grupo", callback_data="grupo")],
-        [
-            InlineKeyboardButton("📋 Menú", callback_data="menu"),
-            InlineKeyboardButton("🎧 Soporte Humano", callback_data="soporte")
-        ]
-    ]
+# botón comprar
+async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
     await query.edit_message_text(
-        "✨ ¿Qué le gustaría hacer?",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        "💳 Pago en cripto\n\n"
+        "USDT (TRC20):\n"
+        "TU_DIRECCION_AQUI\n\n"
+        "📩 Envía captura del pago"
     )
 
-# TIERS
-async def menu_tiers(query):
-    keyboard = [
-        [
-            InlineKeyboardButton("⭐ Tier Starter", callback_data="tier_starter"),
-            InlineKeyboardButton("⭐ Tier 1", callback_data="tier1")
-        ],
-        [
-            InlineKeyboardButton("⭐ Tier 2", callback_data="tier2"),
-            InlineKeyboardButton("⭐ Tier 3", callback_data="tier3")
-        ],
-        [
-            InlineKeyboardButton("⭐ Tier 4", callback_data="tier4"),
-            InlineKeyboardButton("⭐ Tier 5", callback_data="tier5")
-        ],
-        [
-            InlineKeyboardButton("⭐ Tier 6", callback_data="tier6"),
-            InlineKeyboardButton("⭐ Tier Max", callback_data="tiermax")
-        ],
-        [InlineKeyboardButton("⭐ Extras", callback_data="extras")],
-        [InlineKeyboardButton("🔙 Volver", callback_data="volver_menu")]
-    ]
+# recibir comprobante
+async def comprobante(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.photo:
+        user = update.effective_user
 
-    await query.edit_message_text(
-        "🎯 Seleccione el plan perfecto para usted:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        await context.bot.send_photo(
+            chat_id=ADMIN_ID,
+            photo=update.message.photo[-1].file_id,
+            caption=f"💰 Pago de @{user.username}\nID: {user.id}"
+        )
+
+        await update.message.reply_text("✅ Comprobante enviado")
+
+# dar acceso
+async def dar_acceso(user_id, context):
+    link = await context.bot.create_chat_invite_link(
+        chat_id=GROUP_ID,
+        member_limit=1
     )
 
-# DETALLE
-async def mostrar_tier(query):
-    keyboard = [
-        [InlineKeyboardButton("🛒 Comprar", callback_data="pagar")],
-        [InlineKeyboardButton("🔙 Volver", callback_data="comprar")]
-    ]
-
-    await query.edit_message_text(
-        "⭐ Tier Starter\n\n✔ Beneficio 1\n✔ Beneficio 2\n✔ Beneficio 3\n\n💰 $9500",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+    await context.bot.send_message(
+        chat_id=user_id,
+        text=f"✅ Acceso aprobado:\n{link.invite_link}"
     )
 
-# PAGOS
-async def metodos_pago(query):
-    keyboard = [
-        [InlineKeyboardButton("🎁 Vouchers", callback_data="voucher")],
-        [InlineKeyboardButton("🔗 Criptomonedas", callback_data="crypto")],
-        [InlineKeyboardButton("❌ Cancelar", callback_data="cancelar")]
-    ]
+# comando aprobar
+async def aprobar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = int(context.args[0])
+    await dar_acceso(user_id, context)
 
-    await query.edit_message_text(
-        "💳 Elija método de pago:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await update.message.reply_text("✅ Usuario aprobado")
 
-# CRIPTOS
-async def criptos(query):
-    keyboard = [
-        [
-            InlineKeyboardButton("₿ Bitcoin", callback_data="btc"),
-            InlineKeyboardButton("Ξ Ethereum", callback_data="eth")
-        ],
-        [
-            InlineKeyboardButton("Ł Litecoin", callback_data="ltc"),
-            InlineKeyboardButton("₮ Tether", callback_data="usdt")
-        ],
-        [
-            InlineKeyboardButton("◎ Solana", callback_data="sol"),
-            InlineKeyboardButton("ɱ Monero", callback_data="xmr")
-        ],
-        [
-            InlineKeyboardButton("✕ Ripple", callback_data="xrp"),
-            InlineKeyboardButton("BNB", callback_data="bnb")
-        ],
-        [InlineKeyboardButton("🔙 Volver", callback_data="pagar")],
-        [InlineKeyboardButton("❌ Cancelar", callback_data="cancelar")]
-    ]
-
-    await query.edit_message_text(
-        "📈 Elija criptomoneda:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-# BOTONES
+# botones
 async def botones(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    data = query.data
+    if query.data == "comprar":
+        await comprar(update, context)
 
-    if data.startswith("lang"):
-        await menu_principal(query)
 
-    elif data == "comprar":
-        await menu_tiers(query)
+# función para ver tu ID
+async def ver_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("TU ID:", update.effective_user.id)
 
-    elif data.startswith("tier"):
-        await mostrar_tier(query)
 
-    elif data == "pagar":
-        await metodos_pago(query)
-
-    elif data == "crypto":
-        await criptos(query)
-
-    elif data == "volver_menu":
-        await menu_principal(query)
-
-    elif data == "cancelar":
-        await query.edit_message_text("❌ Operación cancelada")
-
-# MAIN
+# app
 app = ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("aprobar", aprobar))
 app.add_handler(CallbackQueryHandler(botones))
+app.add_handler(MessageHandler(filters.PHOTO, comprobante))
+
+# 👇 este sirve para mostrar tu ID en logs
+app.add_handler(MessageHandler(filters.ALL, ver_id))
 
 app.run_polling()
